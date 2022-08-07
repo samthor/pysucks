@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+# we use this as the top-level import name
+# this uses "bad" characters so it's difficult to accidentally import (need __import__)
+virtual_root_name = '--root'
+
 # sys is probably from CPython and cannot be replaced
 import sys
 
@@ -78,20 +82,19 @@ rel = os.path.relpath(cmd, moduleroot)
 # Modules cannot end with '.py'
 if rel.endswith(".py"):
   rel = rel[:-3]
-import_name = rel.replace(os.path.sep, ".")
 
 with tempfile.TemporaryDirectory() as tmpdir:
-  os.symlink(moduleroot, os.path.join(tmpdir, 'rootx'))
+  os.symlink(moduleroot, os.path.join(tmpdir, virtual_root_name))
 
-  print("moduleroot=", moduleroot, "import_name=", import_name)
-
-  # importlib.util.find_spec will find our code but not evaluate it
+  # Load the "relative" import from the tmpdir: in the virtual root + path
+  # importlib_util.find_spec will find our code but _not_ evaluate it
   sys.path = [tmpdir]
-
-  import_name = 'rootx.' + import_name
-
+  import_name = virtual_root_name + '.' + rel.replace(os.path.sep, ".")
   spec = importlib_util.find_spec(import_name)
   code = spec.loader.get_code(import_name)
+
+  # Drop right-most dot part from the package name, it's the filename
+  package_name = import_name.rsplit('.', 1)[0]
 
   # TODO: this is what runpy module does for some reason
   module = types.ModuleType(import_name)
@@ -102,11 +105,12 @@ with tempfile.TemporaryDirectory() as tmpdir:
     __cached__ = None,
     __doc__ = None,
     __loader__ = spec.loader,
-    __package__ = import_name,
+    __package__ = package_name,
     __spec__ = spec,
   )
 
   # Restore path - we"ve loaded code and now want to run it.
   # This is the path without any cwd or the path of this script.
   sys.path = actual_path
+
   exec(code, g)
