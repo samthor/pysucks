@@ -28,7 +28,7 @@ def choose_moduleroot(dirname):
   Short-circuits a moduleroot. Uses VIRTUAL_ENV if found.
   """
   venv = os.getenv("VIRTUAL_ENV")
-  if os.path.commonprefix([venv, dirname]) == venv:
+  if venv and os.path.commonprefix([venv, dirname]) == venv:
     return venv
 
 def use_as_moduleroot(dirname):
@@ -80,17 +80,15 @@ if rel.endswith(".py"):
   rel = rel[:-3]
 import_name = rel.replace(os.path.sep, ".")
 
-print("moduleroot=", moduleroot, "import_name=", import_name)
-
 with tempfile.TemporaryDirectory() as tmpdir:
-  os.symlink(moduleroot, os.path.join(tmpdir, 'root'))
+  os.symlink(moduleroot, os.path.join(tmpdir, 'rootx'))
 
-  print("got tmpdir")
+  print("moduleroot=", moduleroot, "import_name=", import_name)
 
   # importlib.util.find_spec will find our code but not evaluate it
   sys.path = [tmpdir]
 
-  import_name = 'root.' + import_name
+  import_name = 'rootx.' + import_name
 
   spec = importlib_util.find_spec(import_name)
   code = spec.loader.get_code(import_name)
